@@ -1,0 +1,3 @@
+$ID_PG   = 'CHANGE_ME'
+$ID_EK   = 'CHANGE_ME'
+$ID_AUTH = 'CHANGE_ME'

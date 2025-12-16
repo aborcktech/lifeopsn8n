@@ -1,0 +1,44 @@
+﻿# Secrets
+**/.env
+**/.env.*
+!.env.example
+**/bitwarden.ids.ps1
+**/*.secret
+**/*.key
+**/*.pem
+**/*.pfx
+**/*.p12
+**/*.crt
+**/*.cer
+
+# SSH keys
+**/id_rsa
+**/id_rsa.pub
+**/id_ed25519
+**/id_ed25519.pub
+
+# Runtime / volumes
+**/.n8n/
+**/pgdata/
+data/
+**/data/logs/
+**/data/backups/
+**/logs/
+**/*.log
+
+# Build / deps / cache
+**/node_modules/
+**/dist/
+**/build/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.cache/
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
