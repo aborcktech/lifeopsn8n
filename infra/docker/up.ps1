@@ -4,13 +4,14 @@ if (-not $env:BW_SESSION) {
   throw 'BW_SESSION não definida. Rode: $env:BW_SESSION = bw unlock --raw'
 }
 
-$ID_PG   = '7eba9e0b-2eec-4fb3-923b-b3b4011d3c73'
-$ID_EK   = '84ca1390-892e-4ffe-a0f0-b3b500ce1d12'
-$ID_AUTH = 'd59d9eb8-d289-460c-9cdc-b3b4011de334'
+# IDs DEVEM vir de variáveis de ambiente
+$ID_PG   = $env:LIFEOPS_BW_ID_PG
+$ID_EK   = $env:LIFEOPS_BW_ID_EK
+$ID_AUTH = $env:LIFEOPS_BW_ID_AUTH
 
-if ([string]::IsNullOrWhiteSpace($ID_PG))   { throw 'ID_PG vazio.' }
-if ([string]::IsNullOrWhiteSpace($ID_EK))   { throw 'ID_EK vazio.' }
-if ([string]::IsNullOrWhiteSpace($ID_AUTH)) { throw 'ID_AUTH vazio.' }
+if ([string]::IsNullOrWhiteSpace($ID_PG))   { throw 'LIFEOPS_BW_ID_PG não definida.' }
+if ([string]::IsNullOrWhiteSpace($ID_EK))   { throw 'LIFEOPS_BW_ID_EK não definida.' }
+if ([string]::IsNullOrWhiteSpace($ID_AUTH)) { throw 'LIFEOPS_BW_ID_AUTH não definida.' }
 
 $pgItem   = bw get item $ID_PG   | ConvertFrom-Json
 $ekItem   = bw get item $ID_EK   | ConvertFrom-Json
@@ -22,16 +23,18 @@ $ekValue  = $ekItem.notes
 $authUser = $authItem.login.username
 $authPass = $authItem.login.password
 
-if ([string]::IsNullOrWhiteSpace($pgUser))   { throw 'POSTGRES_USER vazio no item LifeOps Postgres.' }
-if ([string]::IsNullOrWhiteSpace($pgPass))   { throw 'POSTGRES_PASSWORD vazio no item LifeOps Postgres.' }
-if ([string]::IsNullOrWhiteSpace($ekValue))  { throw 'N8N_ENCRYPTION_KEY vazia no item LifeOps N8N EK (Anotação).' }
-if ([string]::IsNullOrWhiteSpace($authUser)) { throw 'N8N_BASIC_AUTH_USER vazio no item LifeOps N8N Basic Auth.' }
-if ([string]::IsNullOrWhiteSpace($authPass)) { throw 'N8N_BASIC_AUTH_PASSWORD vazia no item LifeOps N8N Basic Auth.' }
+if ([string]::IsNullOrWhiteSpace($pgUser))   { throw 'POSTGRES_USER vazio no Bitwarden.' }
+if ([string]::IsNullOrWhiteSpace($pgPass))   { throw 'POSTGRES_PASSWORD vazio no Bitwarden.' }
+if ([string]::IsNullOrWhiteSpace($ekValue))  { throw 'N8N_ENCRYPTION_KEY vazia (notes).' }
+if ([string]::IsNullOrWhiteSpace($authUser)) { throw 'N8N_BASIC_AUTH_USER vazio.' }
+if ([string]::IsNullOrWhiteSpace($authPass)) { throw 'N8N_BASIC_AUTH_PASSWORD vazia.' }
 
 $ekValue = $ekValue.Trim()
-if ($ekValue.Length -lt 32) { throw 'N8N_ENCRYPTION_KEY curta demais (<32).' }
+if ($ekValue.Length -lt 32) {
+  throw 'N8N_ENCRYPTION_KEY curta demais (<32).'
+}
 
-# Escape crítico para Docker Compose (evita $VAR / ${VAR})
+# Escape crítico para Docker Compose
 $env:POSTGRES_USER            = $pgUser.Trim()
 $env:POSTGRES_PASSWORD        = ($pgPass   -replace '\$', '$$').Trim()
 $env:N8N_ENCRYPTION_KEY       = ($ekValue  -replace '\$', '$$').Trim()
@@ -47,4 +50,3 @@ if ($LASTEXITCODE -ne 0) {
 Pop-Location
 
 Write-Host 'LifeOps stack iniciado (segredos via Bitwarden, runtime-only).'
-
