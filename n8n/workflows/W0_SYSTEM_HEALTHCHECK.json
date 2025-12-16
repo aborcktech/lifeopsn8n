@@ -1,0 +1,128 @@
+{
+  "name": "W0_SYSTEM_HEALTHCHECK",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            },
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1072,
+        0
+      ],
+      "id": "837dfeab-3111-4340-8d7f-d7230d1c78d0",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT now() AS ts, 1 AS ok;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -864,
+        0
+      ],
+      "id": "e671869e-718f-4443-86e7-826e24670f3e",
+      "name": "PG_HEALTHCHECK",
+      "retryOnFail": true,
+      "credentials": {
+        "postgres": {
+          "id": "Mety86zzuX0gXK0s",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// BUILD_EVENT: normaliza saída para inserção no ledger\nconst hasError =\n  !!$json.error ||\n  ($json?.message && String($json.message).toLowerCase().includes('error'));\n\nconst status = hasError ? 'fail' : 'ok';\n\nconst meta = {\n  workflow: 'W0_SYSTEM_HEALTHCHECK',\n  check: 'postgres',\n  ts: new Date().toISOString(),\n};\n\nif (hasError) {\n  meta.error = $json.error ?? $json.message ?? 'unknown_error';\n}\n\nreturn [{\n  agent: 'system',\n  action: 'system.healthcheck',\n  input_ref: 'cron',\n  output_ref: 'postgres:ping',\n  confidence: 1.0,\n  status,\n  meta,\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        0
+      ],
+      "id": "09613f8e-d423-4dec-83e3-498c55835858",
+      "name": "BUILD_EVENT"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ledger.events\n(agent, action, input_ref, output_ref, confidence, status, meta)\nVALUES\n(\n  '{{ $json.agent }}',\n  '{{ $json.action }}',\n  '{{ $json.input_ref }}',\n  '{{ $json.output_ref }}',\n  {{ $json.confidence }},\n  '{{ $json.status }}',\n  '{{ JSON.stringify($json.meta) }}'::jsonb\n);\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -448,
+        0
+      ],
+      "id": "295a1823-24f6-4b80-a08f-e0fe6b9de13b",
+      "name": "LEDGER_INSERT",
+      "credentials": {
+        "postgres": {
+          "id": "Mety86zzuX0gXK0s",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "PG_HEALTHCHECK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG_HEALTHCHECK": {
+      "main": [
+        [
+          {
+            "node": "BUILD_EVENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUILD_EVENT": {
+      "main": [
+        [
+          {
+            "node": "LEDGER_INSERT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2c527461-1bb5-4955-98d0-440666388704",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d3c3cc24994848c0886764d73cbf13f8bda1a37350371f0d54b482e3a68f6ae4"
+  },
+  "id": "QWASqOGCbFREb9zw",
+  "tags": []
+}
