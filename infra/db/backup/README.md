@@ -1,27 +1,36 @@
 # Backup do Banco — LifeOps
 
 ## Objetivo
-Garantir a preservação da memória do sistema (ledger + dados operacionais).
+Garantir a preservação da memória do sistema LifeOps,
+especialmente o ledger (`ledger.events` e `ledger.decisions`),
+de forma simples, confiável e auditável.
+
+---
 
 ## Escopo
-- Backup manual e agendável
-- Dump lógico do PostgreSQL
-- Retenção local simples
+- Backup manual do PostgreSQL
+- Dump lógico em formato custom (`pg_dump -Fc`)
+- Execução local, controlada pelo operador
 
-## Quando executar
-- Antes de mudanças estruturais
-- Periodicamente (agendado no futuro)
-- Antes de upgrades
+---
 
-## Onde salva
-- Diretório: data/backups/
-- Nome: lifeops_<timestamp>.sql.gz
+## Quando Executar
+- Antes de mudanças estruturais (migrations, refactors)
+- Antes de upgrades de stack ou versão
+- Periodicamente (agendamento futuro)
+- Sempre que houver dúvida sobre integridade
 
-## Garantias
-- Dump consistente do banco
-- Preserva ledger.events e ledger.decisions
+---
 
-## Fora de escopo (intencional)
-- Restore automático
-- Envio para cloud
-- Criptografia de arquivo (por enquanto)
+## Onde Salva
+- Diretório: `infra/db/backup/`
+- Formato: `lifeops_YYYYMMDD_HHMM.dump`
+- Um arquivo por execução (nunca sobrescreve)
+
+---
+
+## Como Executar
+
+### Backup
+```bash
+./backup.sh
