@@ -45,7 +45,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// BUILD_EVENT: normaliza saída para inserção no ledger\nconst hasError =\n  !!$json.error ||\n  ($json?.message && String($json.message).toLowerCase().includes('error'));\n\nconst status = hasError ? 'fail' : 'ok';\n\nconst meta = {\n  workflow: 'W0_SYSTEM_HEALTHCHECK',\n  check: 'postgres',\n  ts: new Date().toISOString(),\n};\n\nif (hasError) {\n  meta.error = $json.error ?? $json.message ?? 'unknown_error';\n}\n\nreturn [{\n  agent: 'system',\n  action: 'system.healthcheck',\n  input_ref: 'cron',\n  output_ref: 'postgres:ping',\n  confidence: 1.0,\n  status,\n  meta,\n}];\n"
+        "jsCode": "// BUILD_EVENT — assemble canonical event + minimal validation\nconst MAX_STR = 120;\n\nfunction toStr(v, maxLen = MAX_STR) {\n  if (v === null || v === undefined) return '';\n  const s = String(v);\n  return s.length > maxLen ? s.slice(0, maxLen) : s;\n}\n\nfunction clamp01(n, fallback = 1.0) {\n  const x = Number(n);\n  if (Number.isNaN(x) || !Number.isFinite(x)) return fallback;\n  return Math.max(0, Math.min(1, x));\n}\n\nfunction normalizeStatus(s) {\n  const v = String(s || '').toLowerCase();\n  return (v === 'ok' || v === 'warn' || v === 'fail') ? v : 'warn';\n}\n\n// Input base (from previous node)\nconst input = $json || {};\n\n// Pull healthcheck result if available (node name must match your workflow)\nlet hc = {};\ntry {\n  hc = $node[\"PG_HEALTHCHECK\"].json || {};\n} catch (e) {\n  hc = {};\n}\n\n// Defaults for W0 (system healthcheck)\nconst agent = toStr(input.agent) || \"system\";\nconst action = toStr(input.action) || \"system.healthcheck\";\nconst input_ref = toStr(input.input_ref) || \"pg:healthcheck\";\nconst output_ref = toStr(input.output_ref) || \"ledger:events\";\n\n// Derive status from healthcheck if present\nconst okVal = (hc.ok !== undefined) ? Number(hc.ok) : undefined;\nconst derivedStatus =\n  okVal === 1 ? \"ok\" :\n  okVal === 0 ? \"fail\" :\n  (input.status ? normalizeStatus(input.status) : \"warn\");\n\nconst confidence = clamp01(input.confidence, 1.0);\n\n// Meta: ensure object and include healthcheck info\nlet meta = input.meta;\nif (typeof meta === 'string') {\n  try { meta = JSON.parse(meta); } catch { meta = { raw: toStr(meta, 500) }; }\n}\nif (!meta || typeof meta !== 'object' || Array.isArray(meta)) meta = {};\n\nmeta.source = meta.source || \"W0_SYSTEM_HEALTHCHECK\";\nmeta.hc = {\n  ts: hc.ts || null,\n  ok: (hc.ok !== undefined ? hc.ok : null)\n};\n\nreturn [{\n  json: {\n    agent,\n    action,\n    input_ref,\n    output_ref,\n    confidence,\n    status: derivedStatus,\n    meta\n  }\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -59,8 +59,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO ledger.events\n(agent, action, input_ref, output_ref, confidence, status, meta)\nVALUES\n(\n  '{{ $json.agent }}',\n  '{{ $json.action }}',\n  '{{ $json.input_ref }}',\n  '{{ $json.output_ref }}',\n  {{ $json.confidence }},\n  '{{ $json.status }}',\n  '{{ JSON.stringify($json.meta) }}'::jsonb\n);\n",
-        "options": {}
+        "query": "INSERT INTO ledger.events\n(agent, action, input_ref, output_ref, confidence, status, meta)\nVALUES\n($1, $2, $3, $4, $5, $6, $7::jsonb);\n",
+        "options": {
+          "queryReplacement": "=={{$json.agent}}\n\n={{$json.action}}\n\n={{$json.input_ref}}\n\n={{$json.output_ref}}\n\n={{$json.confidence}}\n\n={{$json.status}}\n\n={{JSON.stringify($json.meta)}}"
+        }
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
@@ -118,7 +120,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "2c527461-1bb5-4955-98d0-440666388704",
+  "versionId": "8f786631-cadd-41fd-ae9e-0413566915fc",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "d3c3cc24994848c0886764d73cbf13f8bda1a37350371f0d54b482e3a68f6ae4"
