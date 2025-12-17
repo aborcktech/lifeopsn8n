@@ -1,7 +1,4 @@
 
-Cole:
-
-```md
 # Contrato Canônico do Ledger — LifeOps
 
 ## ledger.events (obrigatório)
